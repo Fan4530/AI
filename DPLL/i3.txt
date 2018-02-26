@@ -1,0 +1,12 @@
+8
+4
+Ru,Ge,Br,Po,Ar,Be,Po,Fr
+Sp,Pe,Sw,En,Co,Me,Ur,Cr
+De,Ic,Co,Sw,Tu,Eg,Se,Ir
+Se,Ni,Au,Ja,Mo,Pa,So,Sa
+AFC:So,Saudi Ar,Ir,Ja,Au
+CAF:Tu,Eg,Se,Mo,Ni
+CONCACAF:Me,Pa,Co
+CONMEBOL:Br,Ar,Ur,Co,Pe
+UEFA:Fr,Ge,En,Ru,Po,Be,Po,Sw,Cr,De,Ic,Se,Sp,Sw
+OFC:None
