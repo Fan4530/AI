@@ -35,7 +35,7 @@ class X(object):
             return '(' + opp.join(args) + ')'
 
 
-class Agent:
+class DPLL:
     pots = []
     UEFA = 0
     pots_set = []
@@ -261,10 +261,7 @@ class Agent:
             return X(op, *args)
 
     _op_identity = {'&': True, '|': False, '+': 0, '*': 1}
-#---------------------------------------------------------------------------------------
 
-    # def conjuncts(self, s):
-    #     return self.dissociate('&', [s])
 
     def find_pure_symbol(self, symbols, clauses):
         for s in symbols:
@@ -341,12 +338,10 @@ class Agent:
             return self.dpll(clauses, new_symbols, new_model)
 
         if not symbols:
-            raise TypeError("Argument should be of the type Expr.")
+            raise TypeError("Wrong input!")
         P, symbols = symbols[0], symbols[1:]
         return (self.dpll(clauses, symbols, self.extend(model, P, True)) or
                 self.dpll(clauses, symbols, self.extend(model, P, False)))
-#-------------------------------------------------------------------------------------------------------
-
 
 
     def prop_symbols(self, x):
@@ -453,8 +448,8 @@ def main():
         print "input1: " + str(i)
         start = time()
         filename = "input1" + str(i) + ".txt"
-        agent = Agent()
-        agent.solver(filename, i)
+        sol = DPLL()
+        sol.solver(filename, i)
         stop = time()
         print("finish input1" + str(i) + ", spend " + str(stop - start) + "s")
 

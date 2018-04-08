@@ -1,0 +1,13 @@
+6
+5
+Russia
+Spain
+Denmark
+Australia
+Chile
+AFC:Australia
+CAF:None
+CONCACAF:None
+CONMEBOL:Chile
+UEFA:Russia,Denmark,Spain
+OFC:None

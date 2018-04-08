@@ -1,10 +1,7 @@
-import random
-import copy
-from time import time
+
 
 import random
 import copy
-from time import time
 
 class X(object):
     def __init__(self, op, *args):
@@ -32,14 +29,14 @@ class X(object):
         args = [str(arg) for arg in self.args]
         if len(args) == 0:
             return op
-        elif len(args) == 1:  # -x or -(x + 1)
+        elif len(args) == 1:
             return op + args[0]
-        else:  # (x - y)
+        else:
             opp = op
             return '(' + opp.join(args) + ')'
 
 
-class Agent:
+class DPLL:
     pots = []
     UEFA = 0
     pots_set = []
@@ -61,23 +58,17 @@ class Agent:
         return normal, UEFA
 
     def get_file(self, filename):
-        # inport the file
-        #filename = "input1.txt"
         fo = open(filename)
         input = [line.strip("\r\n") for line in fo.readlines()]
         fo.close()
-        # transfer format
         self.group_number = int(input[0])
         pot_number = int(input[1])
-
         self.pots = [line.split(",") for line in input[2:pot_number + 2]]
         for line in self.pots:
             line_set = set()
             for ele in line:
-
                 line_set.add(ele)
             self.pots_set.append(line_set)
-
         confederations = [line.replace(':', ',').split(",") for line in input[pot_number + 2: len(input)]]
         self.normal, self.UEFA = self.get_area(confederations)
         for i in range(0, len(self.pots[0])):
@@ -178,6 +169,8 @@ class Agent:
 
 
 
+#------------------------------------------
+#The following code modified from text book, the source code DPLL
     def pl_resolution(self):
         clauses = self.clauses
         new = set()
@@ -226,7 +219,6 @@ class Agent:
 
     def dissociate(self, op, args):
         result = []
-
         def collect(subargs):
             for arg in subargs:
                 if arg.op == op:
@@ -264,10 +256,6 @@ class Agent:
             return X(op, *args)
 
     _op_identity = {'&': True, '|': False, '+': 0, '*': 1}
-#---------------------------------------------------------------------------------------
-
-    # def conjuncts(self, s):
-    #     return self.dissociate('&', [s])
 
     def find_pure_symbol(self, symbols, clauses):
         for s in symbols:
@@ -294,9 +282,9 @@ class Agent:
             sym, positive = self.inspect_literal(literal)
             if sym in model:
                 if model[sym] == positive:
-                    return None, None  # clause already True
+                    return None, None
             elif P:
-                return None, None  # more than 1 unbound variable
+                return None, None
             else:
                 P, value = sym, positive
         return P, value
@@ -315,20 +303,18 @@ class Agent:
     def dpll_satisfiable(self):
         s = copy.deepcopy(self.clauses)
         clauses = s
-        # symbols = list(set(sym for clause in s for sym in self.prop_symbols(clause)))
         tmp = self.associate('&', s)
         symbols = self.prop_symbols(tmp)
         return self.dpll(clauses, symbols, {})
 
     def dpll(self, clauses, symbols, model):
-        unknown_clauses = []  # clauses with an unknown truth value
+        unknown_clauses = []
         for c in clauses:
             val = self.pl_true(c, model)
             if val is False:
                 return False
             if val is not True:
                 unknown_clauses.append(c)
-
         if not unknown_clauses:
             return model
         P, value = self.find_unit_clause(clauses, model)
@@ -339,17 +325,14 @@ class Agent:
         P, value = self.find_pure_symbol(symbols, unknown_clauses)
         if P:
             new_symbols = self.removeall(P, symbols)
-            # new_symbols = symbols.remove(P)
             new_model = self.extend(model, P, value)
             return self.dpll(clauses, new_symbols, new_model)
 
         if not symbols:
-            raise TypeError("Argument should be of the type Expr.")
+            raise TypeError("Wrong input")
         P, symbols = symbols[0], symbols[1:]
         return (self.dpll(clauses, symbols, self.extend(model, P, True)) or
                 self.dpll(clauses, symbols, self.extend(model, P, False)))
-#-------------------------------------------------------------------------------------------------------
-
 
 
     def prop_symbols(self, x):
@@ -360,6 +343,8 @@ class Agent:
         else:
             return list(set(symbol for arg in x.args for symbol in self.prop_symbols(arg)))
 
+
+    # the op logic
     def pl_true(self, exp, model={}):
         if exp in (True, False):
             return exp
@@ -390,15 +375,12 @@ class Agent:
                 if p is None:
                     result = None
             return result
-    #!!!!!!!!!!!!!
+
+#------------------------------------------------------------
+    #check if the input is valid
     def is_prop_symbol(self, s):
-        return self.is_symbol(s)
-
-    def is_symbol(self, s):
         return isinstance(s, str) and s[0].isalpha()
-
-    def probability(self, p):
-        return p > random.uniform(0.0, 1.0)
+    #corner case
     def corner_case(self):
         if len(self.pots[0]) > self.group_number or len(self.UEFA) > self.group_number * 2:
             return True
@@ -406,6 +388,7 @@ class Agent:
             if len(line) > self.group_number:
                 return True
         return False
+    #deal with corner case to optimize the code
     def solver(self):
         self.get_file("input.txt")
         if self.corner_case() is True:
@@ -418,8 +401,12 @@ class Agent:
             if not tag:
                 self.write_file("output.txt", False, '')
             else:
-                # ans = self.WalkSAT(p=0.8)
                 self.write_file("output.txt", True, tag)
+    # change like ABC12 - > ABC 12
+    def get_res(self, str):
+        for i in range(0, len(str)):
+            if str[i].isdigit():
+                return str[0: i], int(str[i: len(str)])
 
     def write_file(self, filename, tag, args):
         res = self.group_number * [""] ;
@@ -431,20 +418,19 @@ class Agent:
             with open(filename, 'w') as f:
                 f.write('Yes\n')
                 keys = args.keys()
-                tmp = []
                 for key in keys:
                     if args[key] == True:
                         ss = key.op
-                        country = ss[0:len(ss) - 1]
-                        group = int(ss[len(ss) - 1])
+                        country, group = self.get_res(ss)
                         res[group] = res[group] + country + ','
                 for i in res:
-                    f.write(i[0:len(i) - 1] +'\n')
+                    if len(i) != 0:
+                        f.write(i[0:len(i) - 1] +'\n')
 
 
 def main():
-    agent = Agent()
-    agent.solver()
+    sol = DPLL()
+    sol.solver()
 
 
 
