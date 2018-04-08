@@ -1,7 +1,7 @@
 import operator
-#orientations = EAST, NORTH, WEST, SOUTH = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+orientations = EAST, NORTH, WEST, SOUTH = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
-orientations = EAST, NORTH, WEST, SOUTH, EAST2, NORTH2, WEST2, SOUTH2 = [(1, 0), (0, 1), (-1, 0), (0, -1), (2, 0), (0, 2), (-2, 0), (0, -2)]
+#orientations = EAST, NORTH, WEST, SOUTH, EAST2, NORTH2, WEST2, SOUTH2 = [(1, 0), (0, 1), (-1, 0), (0, -1), (2, 0), (0, 2), (-2, 0), (0, -2)]
 turns = LEFT, RIGHT = (+1, -1)
 
 def turn_heading(heading, inc, headings=orientations):
@@ -15,6 +15,8 @@ def turn_left(heading):
 def vector_add(a, b):
     """Component-wise addition of two vectors."""
     return tuple(map(operator.add, a, b))
+def vector_multiply(a, b):
+    return (a[0] * b, a[1] * b);
 
 
 class MDP:
@@ -26,7 +28,7 @@ class MDP:
     list of (p, s') pairs. We also keep track of the possible states,
     terminal states, and actions for each state. [page 646]"""
 
-    def __init__(self, init, actlist, terminals, transitions=None, reward=None, states=None, gamma=0.9):
+    def __init__(self, init, actlist, terminals, transitions=None, reward=None, states=None, gamma=0.9, ):
         if not (0 < gamma <= 1):
             raise ValueError("An MDP must have 0 < gamma <= 1")
 
@@ -113,7 +115,7 @@ class GridMDP(MDP):
     (unreachable state). Also, you should specify the terminal states.
     An action is an (x, y) unit vector; e.g. (1, 0) means move east."""
 
-    def __init__(self, grid, terminals, init=(0, 0), gamma=.9):
+    def __init__(self, grid, terminals, init=(0, 0), gamma=.9, step = 2):
         grid.reverse()  # because we want row 0 on bottom, not on top
         reward = {}
         states = set()
@@ -127,30 +129,70 @@ class GridMDP(MDP):
                     reward[(x, y)] = grid[y][x]
         self.states = states
         actlist = orientations
+
         transitions = {}
         for s in states:
             transitions[s] = {}
             for a in actlist:
-                transitions[s][a] = self.calculate_T(s, a)
+                transitions[s][a] = self.calculate_T(s, a, step)
+
+        # transitions: is an matrix,
+        #   the row is the state, the col is the direction,
+        #   and the value is the all possibilites of action:  <probability, destination>
+        #   example: transitions[(0, 0)][(-1, 0)]:  [(0.8, (0, 0)), (0.1, (0, 2)), (0.1, (0, 0))]
         MDP.__init__(self, init, actlist=actlist,
                      terminals=terminals, transitions=transitions,
                      reward=reward, states=states, gamma=gamma)
 
-    def calculate_T(self, state, action):
+    #TODO: need to change the probability and step
+    #TODO: if actions is 2 step, then return ... else return ...
+
+    #calculate the action: return all the possible results of (probability, destination)
+    # parameter:
+
+    # state: original position
+    # action: the direction that the robot face to
+
+    def calculate_T(self, state, action, step):
         if action:
-            return [(0.8, self.go(state, action)),
-                    (0.1, self.go(state, turn_right(action))),
-                    (0.1, self.go(state, turn_left(action)))]
+            #example:
+            #state: (0, 1)
+            #action: (1, 0)
+            #self.go((0,1), (1, 0)) = (0, 1)
+
+            #L X    X X
+            #S None X X
+            #R X    X X
+
+            #turn_right: (0, 2)
+            #turn_left: (0, 0)
+            return [(0.8, self.go(state, action, step)),
+                    (0.1, self.go(state, turn_right(action), step)),
+                    (0.1, self.go(state, turn_left(action), step))]
         else:
             return [(0.0, state)]
 
     def T(self, state, action):
         return self.transitions[state][action] if action else [(0.0, state)]
 
-    def go(self, state, direction):
-        """Return the state that results from going in this direction."""
-        state1 = vector_add(state, direction)
-        return state1 if state1 in self.states else state
+    def go(self, state, direction, step):
+        """Return the state that results from going in this direction.
+        Vector_add: state + direction
+        exm: (1, 0) + (0, 1) = (1, 1)"""
+        state_updated = state
+        for i in range(1, step + 1):
+            state_updated = vector_add(state_updated, direction)
+            if state_updated not in self.states:
+                return state
+        return state_updated
+
+    # def go(self, state, direction):
+    #     """Return the state that results from going in this direction.
+    #     Vector_add: state + direction
+    #     exm: (1, 0) + (0, 1) = (1, 1)"""
+    #
+    #     state1 = vector_add(state, direction)
+    #     return state1 if state1 in self.states else state
 
     def to_grid(self, mapping):
         """Convert a mapping from (x, y) to v into a [[..., v, ...]] grid."""
@@ -180,6 +222,8 @@ def value_iteration(mdp, epsilon=0.001):
         if delta < epsilon * (1 - gamma) / gamma:
             return U
 
+
+
 def best_policy(mdp, U):
     """Given an MDP and a utility function U, determine the best policy,
     as a mapping from state to action. (Equation 17.4)"""
@@ -190,17 +234,52 @@ def best_policy(mdp, U):
         # example: (0, 1): (0, 1), from (0, 1) go to (0, 1) direction
     return pi
 
+#--------------------------revised -----------------------------------------------------------------
+def value_iteration(mdp1, mdp2, epsilon=0.001):
+    """Solving an MDP by value iteration. [Figure 17.4]"""
+    U1 = {s: 0 for s in mdp1.states}  # initial utility
+    R1, T1, gamma1 = mdp1.R, mdp1.T, mdp1.gamma
+    R2, T2, gamma2 = mdp2.R, mdp2.T, mdp2.gamma
+    # R: reward
+    # T: action
+    # gama: discount
+    while True:
+        U = U1.copy()
+        delta = 0
+        for s in mdp1.states:
+            U1[s] = R1(s) + gamma1 * max(sum(p * U[s1] for (p, s1) in T1(s, a)) for a in mdp1.actions(s))
+            U1[s] = R2(s) + gamma2 * max(sum(p * U[s1] for (p, s1) in T2(s, a)) for a in mdp2.actions(s))
+            delta = max(delta, abs(U1[s] - U[s]))
+        if delta < epsilon * (1 - gamma1) / gamma1:
+            return U
+
+def best_policy(mdp1, mdp2, U):
+    """Given an MDP and a utility function U, determine the best policy,
+    as a mapping from state to action. (Equation 17.4)"""
+    pi = {}
+    for s in mdp1.states:
+        tmp1 = max(mdp1.actions(s), key=lambda a: expected_utility(a, s, U, mdp1))
+        tmp2 = max(mdp2.actions(s), key=lambda a: expected_utility(a, s, U, mdp2))
+        pi[s] = max(tmp1, tmp2);
+        #argmax: max for the value. pi is the best policy, which determine where to go:
+        # example: (0, 1): (0, 1), from (0, 1) go to (0, 1) direction
+    return pi
+
 
 def expected_utility(a, s, U, mdp):
     """The expected utility of doing a in state s, according to the MDP and U."""
     return sum(p * U[s1] for (p, s1) in mdp.T(s, a))
-    #mdp.T(s, a) means, if I go to direction a, all the probabilities when I going to all the directions
-    #ex: s = [1, 1], a = [1, 0]  (go left)
-    #:   = <(1, 0), p = 0.1>   <(2, 1), p = 0.8>  <(1, 2), p = 0.1>
+
+
+#-------------------------------------------------------------------------------------------
 
 
 
-sequential_decision_environment = GridMDP([[-0.04, -0.04, -0.04, +1],
+input1 = GridMDP([[-0.04, -0.04, -0.04, +1],
+                                           [-0.04, None, -0.04, -1],
+                                           [-0.04, -0.04, -0.04, -0.04]],
+                                          terminals=[(3, 2), (3, 1)])
+input2 = GridMDP([[-0.04, -0.04, -0.04, +1],
                                            [-0.04, None, -0.04, -1],
                                            [-0.04, -0.04, -0.04, -0.04]],
                                           terminals=[(3, 2), (3, 1)])
@@ -231,8 +310,14 @@ def print_table(table, header=None, sep='   ', numfmt='{}'):
         print(sep.join(getattr(
             str(x), j)(size) for (j, size, x) in zip(justs, sizes, row)))
 
-pi = best_policy(sequential_decision_environment, value_iteration(sequential_decision_environment, .01))
+# pi = best_policy(sequential_decision_environment, value_iteration(sequential_decision_environment, .01))
+# print pi
+# print sequential_decision_environment.to_arrows(pi)
+# print_table(sequential_decision_environment.to_arrows(pi))
+
+
+pi = best_policy(input1, input2, value_iteration(input1, input2, .01))
 print pi
-print sequential_decision_environment.to_arrows(pi)
-print_table(sequential_decision_environment.to_arrows(pi))
+print input1.to_arrows(pi)
+print_table(input1.to_arrows(pi))
 
